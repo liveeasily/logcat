@@ -1,0 +1,104 @@
+#!/usr/bin/env python
+
+'''
+Created on 2013. 2. 10.
+
+@author: sunjae
+'''
+
+from optparse import OptionParser
+import sys
+import os
+option_0 = {'name': ('-i', '--include'), 'help': 'directory input', 'nargs': 1}
+option_1 = {'name': ('-e', '--exclude'), 'help': 'add debug', 'action': 'count'}
+options = [option_0, option_1]
+
+PATH_CONFIG = os.path.join(os.getenv("HOME"), ".android")
+FILE_CONFIG = os.path.join(PATH_CONFIG, "logcat.config")
+
+DEFAULT_CONFIG = '''
+# This is a config for logcat.
+
+section: default
+    tags=ActivityManager, *:S
+end
+
+section: sample
+    tags=ActivityManager, StricMode:E
+end
+'''
+
+def _MakeConfigFile():
+    f = open(FILE_CONFIG, "w")
+    f.write(DEFAULT_CONFIG)
+    f.close()
+    pass
+
+def _ExtractSectoinName(line):
+    separator = line.find(':')
+    return line[separator+1:].strip()
+
+def _ExtractFilters(f):
+    for line in f:
+        line = line.strip()
+        if line.startswith('tags'):
+            separator = line.find('=')
+            line = line[separator+1:].strip()
+            
+            filter = ''
+            for tag in line.split(','):
+                tag = tag.strip()
+                filter += ' ' + tag
+            
+            return filter
+        elif line.startswith('end'):
+            break
+
+def _ReadSection(section):
+    f = open(FILE_CONFIG)
+    
+    tags = None
+    for line in f:
+        line = line.strip()
+        
+        if line.startswith('#'):
+            continue
+        
+        if line.startswith('section'):
+            if section == _ExtractSectoinName(line):
+                tags = _ExtractFilters(f)
+                break
+            else:
+                continue
+            
+    f.close()
+    return tags
+    
+def _CheckConfigFile():
+    if not os.path.isdir(PATH_CONFIG):
+        print "There is no directory for config.. Make it(%s)" % PATH_CONFIG
+        os.mkdir(PATH_CONFIG)
+        
+    if not os.path.isfile(FILE_CONFIG):
+        print "There is no config file. Make it(%s)" % FILE_CONFIG
+        _MakeConfigFile()
+        
+    # FIXME
+    filter = _ReadSection("sample")
+    cmd = "adb logcat %s" % filter
+    print cmd
+    os.system(cmd)
+
+def main(options, arguments):
+    _CheckConfigFile()
+
+if __name__ == "__main__":
+    parser = OptionParser()
+    for option in options:
+        param = option['name']
+        del option['name']
+        parser.add_option(*param, **option)
+
+    options, arguments = parser.parse_args()
+    sys.argv[:] = arguments
+    main(options, arguments)
