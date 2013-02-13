@@ -9,9 +9,9 @@ Created on 2013. 2. 10.
 from optparse import OptionParser
 import sys
 import os
-option_0 = {'name': ('-i', '--include'), 'help': 'directory input', 'nargs': 1}
-option_1 = {'name': ('-e', '--exclude'), 'help': 'add debug', 'action': 'count'}
-options = [option_0, option_1]
+
+option_0 = {'name': ('-s', '--section'), 'help': 'section name', 'nargs': 1}
+options = [option_0]
 
 PATH_CONFIG = os.path.join(os.getenv("HOME"), ".android")
 FILE_CONFIG = os.path.join(PATH_CONFIG, "logcat.config")
@@ -20,15 +20,15 @@ DEFAULT_CONFIG = '''
 # This is a config for logcat.
 
 section: default
-    tags=ActivityManager, *:S
+    #tags=ActivityManager, *:S, .....
 end
 
 section: sample
-    tags=ActivityManager, StricMode:E
+    tags=ActivityManager, AndroidRuntime:*, *:S
 end
 '''
 
-def _MakeConfigFile():
+def _MakeDeafultConfig():
     f = open(FILE_CONFIG, "w")
     f.write(DEFAULT_CONFIG)
     f.close()
@@ -54,25 +54,33 @@ def _ExtractFilters(f):
         elif line.startswith('end'):
             break
 
-def _ReadSection(section):
+def _GetContentsInSection(section):
     f = open(FILE_CONFIG)
     
-    tags = None
-    for line in f:
-        line = line.strip()
+    found_section = False
+    contents = []
+    
+    while True:
+        line = f.readline()
+        if not line:
+            break
         
-        if line.startswith('#'):
+        line = line.replace('\n', '')
+        line = line.replace(' ', '')
+        if len(line) < 1 or line.startswith('#'):
             continue
         
-        if line.startswith('section'):
-            if section == _ExtractSectoinName(line):
-                tags = _ExtractFilters(f)
+        if found_section:
+            if line == 'end':
                 break
             else:
-                continue
+                contents.append(line.replace('tags=', ''))
+        else:
+            if line == ("section:%s" % section):
+                found_section = True 
             
     f.close()
-    return tags
+    return contents
     
 def _CheckConfigFile():
     if not os.path.isdir(PATH_CONFIG):
@@ -81,17 +89,26 @@ def _CheckConfigFile():
         
     if not os.path.isfile(FILE_CONFIG):
         print "There is no config file. Make it(%s)" % FILE_CONFIG
-        _MakeConfigFile()
-        
-    # FIXME
-    filter = _ReadSection("sample")
-    cmd = "adb logcat %s" % filter
-    print cmd
-    os.system(cmd)
+        _MakeDeafultConfig()
+       
 
 def main(options, arguments):
     _CheckConfigFile()
-
+ 
+    # FIXME
+    filters= _GetContentsInSection("default")
+    if options.section:
+        filters += _GetContentsInSection(options.section)
+        
+    filter_spec = ''
+    for x in filters:
+        for item in x.split(','):
+            filter_spec += item + ' '
+           
+    cmd = "adb logcat %s" % filter_spec
+    print cmd
+    os.system(cmd)
+    
 if __name__ == "__main__":
     parser = OptionParser()
     for option in options:
