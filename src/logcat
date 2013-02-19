@@ -34,26 +34,6 @@ def _MakeDeafultConfig():
     f.close()
     pass
 
-def _ExtractSectoinName(line):
-    separator = line.find(':')
-    return line[separator+1:].strip()
-
-def _ExtractFilters(f):
-    for line in f:
-        line = line.strip()
-        if line.startswith('tags'):
-            separator = line.find('=')
-            line = line[separator+1:].strip()
-            
-            filter = ''
-            for tag in line.split(','):
-                tag = tag.strip()
-                filter += ' ' + tag
-            
-            return filter
-        elif line.startswith('end'):
-            break
-
 def _GetContentsInSection(section):
     f = open(FILE_CONFIG)
     
@@ -95,7 +75,6 @@ def _CheckConfigFile():
 def main(options, arguments):
     _CheckConfigFile()
  
-    # FIXME
     filters= _GetContentsInSection("default")
     if options.section:
         filters += _GetContentsInSection(options.section)
